@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard de Demanda</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f4f0;
+      --surface: #ffffff;
+      --surface2: #f1f0ec;
+      --border: rgba(0,0,0,0.10);
+      --border2: rgba(0,0,0,0.18);
+      --text: #1a1a18;
+      --text2: #5f5e5a;
+      --text3: #888780;
+      --blue: #185FA5;
+      --blue-light: rgba(24,95,165,0.10);
+      --teal: #0F6E56;
+      --teal-light: rgba(15,110,86,0.10);
+      --amber: #BA7517;
+      --amber-light: rgba(239,159,39,0.20);
+      --green-text: #3B6D11;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --surface: #242422;
+        --surface2: #2c2c2a;
+        --border: rgba(255,255,255,0.10);
+        --border2: rgba(255,255,255,0.18);
+        --text: #f0efe9;
+        --text2: #b4b2a9;
+        --text3: #888780;
+        --blue-light: rgba(24,95,165,0.18);
+        --teal-light: rgba(15,110,86,0.18);
+        --amber-light: rgba(239,159,39,0.15);
+        --green-text: #97C459;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 0.5px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    header .date {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text3);
+      margin-bottom: 10px;
+    }
+
+    .inputs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 1.5rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .upload-zone {
+      border: 1.5px dashed var(--border2);
+      border-radius: var(--radius-lg);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .upload-zone:hover, .upload-zone.over {
+      background: var(--surface2);
+    }
+
+    .upload-zone.done {
+      border-color: #3B6D11;
+      border-style: solid;
+    }
+
+    .upload-zone .icon {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .upload-zone strong {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .upload-zone p {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+
+    .upload-zone .fname {
+      font-size: 12px;
+      color: var(--green-text);
+      font-weight: 500;
+    }
+
+    .ventas-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .ventas-table th {
+      font-size: 11px;
+      color: var(--text3);
+      text-align: left;
+      padding: 4px 8px;
+      border-bottom: 0.5px solid var(--border);
+      font-weight: 400;
+    }
+
+    .ventas-table td {
+      padding: 4px 8px;
+    }
+
+    .ventas-table input[type=number] {
+      width: 100%;
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius-md);
+      padding: 4px 8px;
+      font-size: 13px;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+    }
+
+    .ventas-table input[type=number]:focus {
+      border-color: var(--blue);
+      background: var(--surface);
+    }
+
+    .month-label {
+      font-size: 12px;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius-md);
+      padding: 7px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text);
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+
+    .btn:hover { background: var(--surface2); }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #E6F1FB;
+      border-color: var(--blue);
+    }
+
+    .btn-primary:hover { background: #0C447C; border-color: #0C447C; }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .metric-card {
+      background: var(--surface2);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+    }
+
+    .metric-card .label {
+      font-size: 11px;
+      color: var(--text3);
+      margin-bottom: 4px;
+    }
+
+    .metric-card .value {
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .metric-card .sub {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 3px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .chart-card h2 {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .chart-card p {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 12px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0 1.5rem;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-bar .hint {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    @media (max-width: 700px) {
+      .inputs-grid { grid-template-columns: 1fr; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📊 Dashboard de Demanda</h1>
+  <span class="date" id="header-date"></span>
+</header>
+
+<div class="container">
+
+  <div class="status-bar">
+    <p class="hint" id="last-update">Carga un forecast y/o ingresa ventas para comenzar</p>
+    <button class="btn" onclick="resetAll()">↺ Limpiar todo</button>
+  </div>
+
+  <p class="section-label">Datos de entrada</p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:1rem;">
+    <div class="upload-zone" id="drop-zone-fc" onclick="document.getElementById('file-input-fc').click()">
+      <input type="file" id="file-input-fc" accept=".xlsx,.xls,.csv" style="display:none">
+      <div class="icon">📈</div>
+      <strong>Forecast desde archivo</strong>
+      <p>Arrastra un .xlsx o .csv<br>con valores de forecast mensual</p>
+      <p class="fname" id="file-name-fc"></p>
+    </div>
+
+    <div class="upload-zone" id="drop-zone-vt" onclick="document.getElementById('file-input-vt').click()">
+      <input type="file" id="file-input-vt" accept=".xlsx,.xls,.csv" style="display:none">
+      <div class="icon">🛒</div>
+      <strong>Ventas reales desde archivo</strong>
+      <p>Arrastra un .xlsx o .csv<br>con valores de ventas mensuales</p>
+      <p class="fname" id="file-name-vt"></p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <h2>O ingresa ventas reales manualmente</h2>
+    <table class="ventas-table">
+      <thead><tr><th>Mes</th><th>Unidades vendidas</th></tr></thead>
+      <tbody id="ventas-body"></tbody>
+    </table>
+    <div class="action-row">
+      <button class="btn btn-primary" onclick="calcular()">Actualizar dashboard</button>
+    </div>
+  </div>
+
+  <p class="section-label">Métricas</p>
+  <div class="metrics-grid">
+    <div class="metric-card"><div class="label">Promedio ventas</div><div class="value" id="m-avg">—</div><div class="sub">unidades / mes</div></div>
+    <div class="metric-card"><div class="label">COV</div><div class="value" id="m-cov">—</div><div class="sub">coeficiente de variación</div></div>
+    <div class="metric-card"><div class="label">Bias forecast</div><div class="value" id="m-bias">—</div><div class="sub">real − forecast promedio</div></div>
+    <div class="metric-card"><div class="label">MAPE</div><div class="value" id="m-mape">—</div><div class="sub">error porcentual medio</div></div>
+  </div>
+
+  <p class="section-label">Gráficos</p>
+
+  <div class="chart-card">
+    <h2>Ventas reales vs Forecast</h2>
+    <p>Comparación mes a mes</p>
+    <div class="legend">
+      <span><i style="background:#185FA5;"></i> Ventas reales</span>
+      <span><i style="background:rgba(239,159,39,0.35); border: 1.5px dashed #BA7517;"></i> Forecast</span>
+    </div>
+    <div style="position:relative;width:100%;height:300px;">
+      <canvas id="chart-main" role="img" aria-label="Gráfico de barras comparando ventas reales vs forecast mes a mes"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Proyección — próximos 6 meses</h2>
+    <p>Basado en tendencia de ventas históricas (regresión lineal)</p>
+    <div class="legend">
+      <span><i style="background:#185FA5;"></i> Histórico</span>
+      <span><i style="background:#0F6E56;"></i> Proyección</span>
+    </div>
+    <div style="position:relative;width:100%;height:280px;">
+      <canvas id="chart-proj" role="img" aria-label="Proyección de ventas para los próximos 6 meses"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  let forecastData = [];
+  let ventasData = [];
+  let chartMain = null;
+  let chartProj = null;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  document.getElementById('header-date').textContent =
+    now.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  function buildVentasTable(n) {
+    const tbody = document.getElementById('ventas-body');
+    tbody.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const offset = currentMonth - n + 1 + i;
+      const m = ((offset % 12) + 12) % 12;
+      const yr = currentYear + Math.floor(offset / 12);
+      const row = document.createElement('tr');
+      row.innerHTML = `<td class="month-label">${MESES[m]} ${yr}</td><td><input type="number" min="0" placeholder="0" id="v${i}" /></td>`;
+      tbody.appendChild(row);
+    }
+  }
+
+  function getVentasValues() {
+    if (ventasData.length > 0) return ventasData;
+    const vals = [];
+    let i = 0;
+    while (document.getElementById('v' + i)) {
+      vals.push(parseFloat(document.getElementById('v' + i).value) || 0);
+      i++;
+    }
+    return vals;
+  }
+
+  function buildMonthLabels(n) {
+    const labels = [];
+    for (let i = 0; i < n; i++) {
+      const offset = currentMonth - n + 1 + i;
+      const m = ((offset % 12) + 12) % 12;
+      labels.push(MESES[m]);
+    }
+    return labels;
+  }
+
+  function linReg(data) {
+    const n = data.length;
+    if (n < 2) return { slope: 0, intercept: data[0] || 0 };
+    let sx = 0, sy = 0, sxy = 0, sx2 = 0;
+    for (let i = 0; i < n; i++) { sx += i; sy += data[i]; sxy += i * data[i]; sx2 += i * i; }
+    const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+    const intercept = (sy - slope * sx) / n;
+    return { slope, intercept };
+  }
+
+  function calcular() {
+    const ventas = getVentasValues();
+    const n = Math.max(ventas.length, forecastData.length, 1);
+    const vFilled = Array.from({ length: n }, (_, i) => ventas[i] || 0);
+    const fFilled = Array.from({ length: n }, (_, i) => forecastData[i] || 0);
+
+    const nonZero = vFilled.filter(x => x > 0);
+    const avg = nonZero.length ? nonZero.reduce((a, b) => a + b, 0) / nonZero.length : 0;
+    const variance = nonZero.length ? nonZero.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / nonZero.length : 0;
+    const std = Math.sqrt(variance);
+    const cov = avg > 0 ? std / avg : 0;
+
+    const pairs = vFilled.map((vi, i) => ({ v: vi, f: fFilled[i] })).filter(p => p.v > 0 && p.f > 0);
+    const bias = pairs.length ? pairs.reduce((a, p) => a + (p.v - p.f), 0) / pairs.length : null;
+    const mape = pairs.length ? (pairs.reduce((a, p) => a + Math.abs((p.v - p.f) / p.v), 0) / pairs.length) * 100 : null;
+
+    document.getElementById('m-avg').textContent = avg > 0 ? avg.toFixed(0) : '—';
+    document.getElementById('m-cov').textContent = avg > 0 ? cov.toFixed(2) : '—';
+    document.getElementById('m-bias').textContent = bias !== null ? (bias >= 0 ? '+' : '') + bias.toFixed(0) : '—';
+    document.getElementById('m-mape').textContent = mape !== null ? mape.toFixed(1) + '%' : '—';
+    document.getElementById('last-update').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+
+    const labels = buildMonthLabels(n);
+    renderMain(labels, vFilled, fFilled);
+
+    const histValues = nonZero.length > 0 ? vFilled : [];
+    const reg = linReg(histValues.length > 0 ? histValues : [0]);
+    const projLabels = [];
+    const projVals = [];
+    for (let j = 0; j < 6; j++) {
+      const offset = currentMonth + 1 + j;
+      const m = ((offset % 12) + 12) % 12;
+      projLabels.push(MESES[m]);
+      const pred = reg.intercept + reg.slope * (histValues.length + j);
+      projVals.push(Math.max(0, Math.round(pred)));
+    }
+    renderProj(labels, vFilled, projLabels, projVals);
+  }
+
+  function renderMain(labels, ventas, forecast) {
+    const ctx = document.getElementById('chart-main');
+    if (chartMain) chartMain.destroy();
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+    const tickColor = isDark ? '#888780' : '#888780';
+    chartMain = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Ventas reales', data: ventas, backgroundColor: '#185FA5', borderRadius: 4, order: 1 },
+          { label: 'Forecast', data: forecast, backgroundColor: 'rgba(239,159,39,0.25)', borderColor: '#BA7517', borderWidth: 1.5, borderRadius: 4, order: 2 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toLocaleString('es-CL') } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, color: tickColor, autoSkip: false, maxRotation: 0 } },
+          y: { grid: { color: gridColor }, ticks: { font: { size: 11 }, color: tickColor, callback: v => v.toLocaleString('es-CL') } }
+        }
+      }
+    });
+  }
+
+  function renderProj(histLabels, histData, projLabels, projData) {
+    const ctx = document.getElementById('chart-proj');
+    if (chartProj) chartProj.destroy();
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+    const tickColor = '#888780';
+    const allLabels = [...histLabels, ...projLabels];
+    const histSeries = [...histData, ...Array(projLabels.length).fill(null)];
+    const lastHist = histData.findLastIndex ? histData.findLastIndex(x => x > 0) : histData.length - 1;
+    const projSeries = Array(histLabels.length).fill(null);
+    if (lastHist >= 0) projSeries[lastHist] = histData[lastHist];
+    projSeries.push(...projData);
+
+    chartProj = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: allLabels,
+        datasets: [
+          { label: 'Histórico', data: histSeries, borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#185FA5', spanGaps: false },
+          { label: 'Proyección', data: projSeries, borderColor: '#0F6E56', backgroundColor: 'rgba(15,110,86,0.08)', fill: true, tension: 0.3, borderDash: [6, 3], pointRadius: 4, pointBackgroundColor: '#0F6E56', spanGaps: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y !== null ? c.parsed.y.toLocaleString('es-CL') : '—') } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, color: tickColor, autoSkip: false, maxRotation: 0 } },
+          y: { grid: { color: gridColor }, ticks: { font: { size: 11 }, color: tickColor, callback: v => v !== null ? v.toLocaleString('es-CL') : '' } }
+        }
+      }
+    });
+  }
+
+  function resetAll() {
+    forecastData = [];
+    ventasData = [];
+    document.getElementById('file-name-fc').textContent = '';
+    document.getElementById('file-name-vt').textContent = '';
+    document.getElementById('drop-zone-fc').classList.remove('done');
+    document.getElementById('drop-zone-vt').classList.remove('done');
+    buildVentasTable(6);
+    if (chartMain) { chartMain.destroy(); chartMain = null; }
+    if (chartProj) { chartProj.destroy(); chartProj = null; }
+    ['m-avg','m-cov','m-bias','m-mape'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('last-update').textContent = 'Carga un forecast y/o ingresa ventas para comenzar';
+  }
+
+  function extractNums(rows) {
+    const vals = [];
+    for (const row of rows) {
+      for (const cell of row) {
+        const n = parseFloat(String(cell).replace(',', '.'));
+        if (!isNaN(n) && n > 0) vals.push(n);
+      }
+      if (vals.length >= 12) break;
+    }
+    return vals.slice(0, 12);
+  }
+
+  function parseFile(file, tipo) {
+    const isCSV = file.name.endsWith('.csv');
+    const reader = new FileReader();
+    if (isCSV) {
+      reader.onload = e => {
+        const rows = e.target.result.split('\n').map(l => l.split(/[,;\t]/));
+        applyData(extractNums(rows), file.name, tipo);
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload = e => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          applyData(extractNums(rows), file.name, tipo);
+        } catch { alert('No se pudo leer el archivo. Verifica que sea .xlsx o .csv con valores numéricos.'); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+  function applyData(vals, fname, tipo) {
+    if (tipo === 'fc') {
+      forecastData = vals;
+      document.getElementById('file-name-fc').textContent = '✓ ' + fname + ' (' + vals.length + ' meses)';
+      document.getElementById('drop-zone-fc').classList.add('done');
+      if (ventasData.length === 0) buildVentasTable(vals.length);
+    } else {
+      ventasData = vals;
+      document.getElementById('file-name-vt').textContent = '✓ ' + fname + ' (' + vals.length + ' meses)';
+      document.getElementById('drop-zone-vt').classList.add('done');
+      buildVentasTable(Math.max(vals.length, forecastData.length));
+      vals.forEach((v, i) => { const el = document.getElementById('v' + i); if (el) el.value = v; });
+    }
+    calcular();
+  }
+
+  document.getElementById('file-input-fc').addEventListener('change', e => {
+    const f = e.target.files[0]; if (f) parseFile(f, 'fc');
+  });
+  document.getElementById('file-input-vt').addEventListener('change', e => {
+    const f = e.target.files[0]; if (f) parseFile(f, 'vt');
+  });
+
+  function setupDrop(zoneId, tipo) {
+    const dz = document.getElementById(zoneId);
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('over');
+      const f = e.dataTransfer.files[0]; if (f) parseFile(f, tipo);
+    });
+  }
+  setupDrop('drop-zone-fc', 'fc');
+  setupDrop('drop-zone-vt', 'vt');
+
+  buildVentasTable(6);
+</script>
+</body>
+</html>
